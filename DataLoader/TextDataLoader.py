@@ -1,0 +1,1 @@
+#TO-DO loading text data and train the wavenet on text generation task
