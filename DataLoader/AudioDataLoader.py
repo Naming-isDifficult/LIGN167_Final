@@ -20,12 +20,13 @@ def one_hot_encode(data:np.ndarray, num_possible_value:int = 256) -> np.ndarray:
     return re
 
 '''
-Assuming data is an np.ndarray with shape (num_sample, num_possible_value)
-Shape won't be checked since most likely we don't need that
-The return value should be an np.ndarray with shape (num_sample,)
+Assuming data is an np.ndarray
+To enable batch operations (for DataLoader), input shape won't be assumed
+Most likely it should be either (num_sample, num_possible_values) or (batch_size, num_sample, num_posible_values)
+The return value should most likely be an np.ndarrat with shape (num_sample,) or (batch_size, num_sample)
 '''
-def one_hot_decode(data:np.ndarray) -> np.ndarray:
-    return data.argmax(axis=1)
+def one_hot_decode(data:np.ndarray, axis=1) -> np.ndarray:
+    return data.argmax(axis)
 
 '''
 Assuming data is an np.ndarray with shape (num_sample,), it should be normalized to -1~1
@@ -113,7 +114,10 @@ class AudioDataset(data.Dataset):
     '''
     Override
     Returning an np.ndarray representing an audio file at a time
-    Data will be one-hot encoded (in other words, each input sample will have 256 features instead of one)
+    Data will be one-hot encoded
+    However, this is mainly because I cannot find a way to take a value from a tuple while coding DataLoader
+    The actual input data will be mu-law encoded instead of one-hot encoded
+    Though yes, using the original data might be a better way
     '''
     def __getitem__(self, index):
 
@@ -124,7 +128,7 @@ class AudioDataset(data.Dataset):
         mu_encoded_data = mu_law_encode(data, self.num_possible_value) #training data
         one_hot_encoded_data = one_hot_encode(mu_encoded_data, self.num_possible_value) #labels
 
-        return one_hot_encoded_data
+        return mu_encoded_data, one_hot_encoded_data
 
     '''
     Override
@@ -146,9 +150,11 @@ class AudioDataLoader(data.DataLoader):
                         trim=True):
 
         dataset = AudioDataset(source_folder, sr,num_possible_value, trim)
-        super(AudioDataLoader, self).__init__(dataset, batch_size, True) #True for shuffling
+        super(AudioDataLoader, self).__init__(dataset, 1, True) #True for shuffling
 
         self.receptive_field = receptive_field
+        self.pseudo_batch = batch_size #batch NOT created by reading several sound file at a time
+                                        #instead, it should be created from a single file
         self.collate_fn = self.generate_training_pairs
         self.has_gpu = torch.cuda.is_available()
     
@@ -157,7 +163,7 @@ class AudioDataLoader(data.DataLoader):
     Autograd is guaranteed, use of gpu is guaranteed
     '''
     def numpy_to_variable(self, data: np.ndarray) -> torch.Tensor:
-        
+
         tensor = torch.from_numpy(data).float()
         re = torch.autograd.Variable(tensor.cuda()) if self.has_gpu\
             else torch.autograd.Variable(tensor)
@@ -165,21 +171,29 @@ class AudioDataLoader(data.DataLoader):
         return re
 
     '''
+    Assuming data is an np.ndarray representing remaining data with shape (num_samples, num_possible_values)
+    This method will calculate the actually batch size according to pseudo batch size and remaining data length
+    '''
+    def calculate_batch_size(self, data:np.ndarray):
+        return self.pseudo_batch if len(data) > self.receptive_field + self.pseudo_batch\
+            else len(data)-self.receptive_field
+
+    '''
     Customized collate_fn
     '''
     def generate_training_pairs(self, stacked_input):
+        #stacked_input.shape = (1, num_samples, num_possible_values)
 
-        mu_encoded_data = stacked_input[0][0] #shape=(num_samples,)
-        one_hot_encoded_data = stacked_input[0][1] #shape=(num_samples,256)
-        
-        
+        #zero-padding
+        stacked_input = np.pad(stacked_input, [[0,0], [self.receptive_field,0], [0,0]], 'constant')
+        #now stacked_input.shape = (1, num_samples+recepetive_field, num_possible_values)
 
-        return mu_encoded_data, one_hot_encoded_data
+        data = stacked_input[0] #data = (num_samples+receptive_field, num_possible_values)
+                                #Also, num_possible_values are output dim, the inputdim should always be 1
+        actual_batch_size = self.calculate_batch_size(data)
+
+        #build a batch with stupid loop
+        targets = data[self.receptive_field+1:self.receptive_field+1+actual_batch_size,] 
+        targets = targets.reshape((actual_batch_size,1,-1)) #targets.shape=(batch_size, 1, num_possible_values)
+
 #------ data-loading section finished ------#
-
-#------ tesing ------#
-if __name__=='__main__':
-    print('testing')
-    a = AudioDataLoader(receptive_field=1024)
-    for i, n in enumerate(a):
-        pass
