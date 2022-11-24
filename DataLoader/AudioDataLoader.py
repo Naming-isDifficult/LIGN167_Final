@@ -128,7 +128,7 @@ class AudioDataset(data.Dataset):
         mu_encoded_data = mu_law_encode(data, self.num_possible_value) #training data
         one_hot_encoded_data = one_hot_encode(mu_encoded_data, self.num_possible_value) #labels
 
-        return mu_encoded_data, one_hot_encoded_data
+        return one_hot_encoded_data
 
     '''
     Override
@@ -144,7 +144,7 @@ It will generate training data and label pairs according to given params
 class AudioDataLoader(data.DataLoader):
     def __init__(self, receptive_field:int,\
                         source_folder:str='AudioData',\
-                        batch_size:int=1,\
+                        batch_size:int=64,\
                         sr:int=16000,\
                         num_possible_value:int=256,\
                         trim=True):
@@ -180,20 +180,39 @@ class AudioDataLoader(data.DataLoader):
 
     '''
     Customized collate_fn
+    This method will generate training pairs for one batch
+    The first value returned by this method is input with shape (batch_size, input_dim, receptive_field)
+    where input_dim is 1 (i.e. (batch_size, 1, receptive_field))
+    The second value returned by this method is output with shape (batch_size, output_dim)
     '''
     def generate_training_pairs(self, stacked_input):
         #stacked_input.shape = (1, num_samples, num_possible_values)
 
-        #zero-padding
-        stacked_input = np.pad(stacked_input, [[0,0], [self.receptive_field,0], [0,0]], 'constant')
-        #now stacked_input.shape = (1, num_samples+recepetive_field, num_possible_values)
-
-        data = stacked_input[0] #data = (num_samples+receptive_field, num_possible_values)
+        data = stacked_input[0] #data = (num_samples+receptive_field, num_possible_values), no paddings
                                 #Also, num_possible_values are output dim, the inputdim should always be 1
-        actual_batch_size = self.calculate_batch_size(data)
 
-        #build a batch with stupid loop
-        targets = data[self.receptive_field+1:self.receptive_field+1+actual_batch_size,] 
-        targets = targets.reshape((actual_batch_size,1,-1)) #targets.shape=(batch_size, 1, num_possible_values)
+        while len(data) > self.receptive_field
+            actual_batch_size = self.calculate_batch_size(data)
+
+            #build targets for one batch
+            targets = data[self.receptive_field:\
+                        self.receptive_field+actual_batch_size,] #targets.shape=(batch_size, num_possible_values)
+                                                                    #or, targets.shape=(batch_size, output_dim)
+            #build inputs for one batch with stupid loop
+            input_raw = data[:self.receptive_field+actual_batch_size-1]
+            input_raw = one_hot_decode(input_raw).reshape((1,-1)) #input_raw.shape=(1, num_sample_need)
+                                                                    #or, input_raw.shape=(input_dim, num_sample_need)
+            input_list = []
+            while len(input_list) < actual_batch_size:
+                input_list.append(input_raw[:,len(input_list):\
+                                len(input_list)+self.receptive_field])
+            inputs = np.stack(input_list, axis=0) #inputs.shape=(batch_size, 1, receptive_field)
+                                                    #or, inputs.shape=(batch_size, input_dim, receptive field)
+            
+            yield self.numpy_to_variable(inputs),\
+                  self.numpy_to_variable(targets)
+            
+            #preparing data for next batch
+            data = data[actual_batch_size:,:]
 
 #------ data-loading section finished ------#
