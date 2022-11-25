@@ -17,7 +17,7 @@ The data preprocess will be divided into two parts:<br>
 1. Seperate a sound file into several shorter sound file
 2. Create a torch.DataLoader to feed the model
 
-For the input data, since librosa will produce normalized data (normalized to -1~1), it might be a good practice to use them directly. However, as for now, I cannot find a way to pass the value to DataLoader, so as for now, it is a part of my **TO-DO** list.
+For the input data, since librosa will produce normalized data (normalized to -1~1), it might be a good practice to use them directly. However, as for now, I cannot find a way to pass the value to DataLoader, so as for now, it is a part of my *TO-DO* list.
 
 <br>
 
@@ -25,7 +25,7 @@ For the input data, since librosa will produce normalized data (normalized to -1
  - ~~Audio data loader~~ *(Now Functioning)*
    - Using original data directly instead of mu-law encoded or one-hot encoded as input *(Still Pending)*
  - ~~Audio data splitter~~
-   - *Replaced by using yield instead of returning a batch created by the whole sound file. Now functioning* 
+   - *Replaced by using yield instead of returning a batch created by the whole sound file.* 
  - Network Layers
  - Model
  - Data

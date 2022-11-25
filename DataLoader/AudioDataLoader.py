@@ -191,7 +191,7 @@ class AudioDataLoader(data.DataLoader):
         data = stacked_input[0] #data = (num_samples+receptive_field, num_possible_values), no paddings
                                 #Also, num_possible_values are output dim, the inputdim should always be 1
 
-        while len(data) > self.receptive_field
+        while len(data) > self.receptive_field:
             actual_batch_size = self.calculate_batch_size(data)
 
             #build targets for one batch
@@ -208,7 +208,9 @@ class AudioDataLoader(data.DataLoader):
                                 len(input_list)+self.receptive_field])
             inputs = np.stack(input_list, axis=0) #inputs.shape=(batch_size, 1, receptive_field)
                                                     #or, inputs.shape=(batch_size, input_dim, receptive field)
-            
+            inputs = mu_law_decode(inputs) #normalize data to [-1,1] and also make sure 0 is actual 0
+                                            #however, due to mu-law, 0 will become a number near 0 but not actual 0
+                                            #so it should be better if we can use original signal as input
             yield self.numpy_to_variable(inputs),\
                   self.numpy_to_variable(targets)
             
