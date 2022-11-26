@@ -229,4 +229,37 @@ class ResidualStack(nn.Module):
 #------ resnet section finished ------#
 
 #------ dense section ------#
+'''
+Last layer of WaveNet, responsible for classification
+It will take the output from residual stack (which is the sum of skip connections) as input
+and will output the classification result based on softmax
+The output should have shape (batch_size, num_possible_values, 1)
+For more information, plz check:
+https://arxiv.org/pdf/1609.03499.pdf
+'''
+class DenseNet(nn.Module):
+
+    def __init__(self, input_dim):
+        #input and output should have the same dim
+        super(DenseNet, self).__init__()
+        
+        self.relu0 = nn.ReLU() #this will be apply directly to input
+
+        self.conv1 = nn.Conv1d(input_dim, input_dim, 1)
+        self.relu1 = nn.ReLU()
+
+        self.conv2 = nn.Conv1d(input_dim, input_dim, 1)
+        self.softmax = nn.Softmax(dim=1) #input.shape=(batch_size, num_possible_values, 1)
+
+    def forward(self, x):
+        output = self.relu0(x)
+
+        output = self.conv1(output)
+        output = self.relu1(output)
+
+        output = self.conv2(output)
+        output = self.softmax(output)
+
+        return output
+
 #------ dense section finished ------#
