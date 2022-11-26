@@ -80,7 +80,7 @@ e.g. input = [[[1 2 3 4 5 6 7 8]],
 '''
 class CausalConv1D(nn.Module):
 
-    def __init__(self, input_dim=1, output_dim=512):
+    def __init__(self, input_dim, output_dim):
         super(CausalConv1D, self).__init__()
 
         self.pad = nn.functional.pad #cuz we only have three dimensions,
@@ -108,6 +108,124 @@ class CausalConv1D(nn.Module):
 #------ convolution layers section finished ------#
 
 #------ resnet section ------#
+'''
+Residual block used by WaveNet model, for more information, plz check:
+https://arxiv.org/pdf/1609.03499.pdf
+I'm not 100% sure about this
+I believe both residual output and skip connection output have the same dimension
+However, if that is the case, since there is not other layers changing the dimension,
+both residual dimension and skip connection dimention has to be the same as output dimension
+Although I implement residual block like that (e.g. residual_input_dim = num_possible_values, 256 by default),
+I might still be wrong ---- they both can be part of hyperparameters.
+'''
+class ResidualBlock(nn.Module):
+
+    def __init__(self, residual_input_dim, dilation):
+        super(ResidualBlock, self).__init__()
+
+        #convolution layers, including one dilated causal convolution layer,
+        #one regular convolution layer for residual output and skip connection output
+        self.dilated_conv = DilatedConv1D(residual_input_dim,\
+                                          dilation=dilation,\
+                                          keep_dim=True)
+        self.regular_conv = nn.Conv1d(in_channels=residual_input_dim,\
+                                      out_channels=residual_input_dim,\
+                                      kernel_size=1) #parameter names added for readability
+
+        #PixelCNN gate unit, as mentioned in the paper
+        self.gate_tanh = nn.Tanh()
+        self.gate_sigmoid = nn.Sigmoid()
+
+
+    def forward(self, x):
+
+        #dilated causal conv
+        dilated_output = self.dilated_conv(x)
+
+        #gate units
+        tanh_gated_x = self.gate_tanh(dilated_output)
+        sigmoid_gated_x = self.gate_sigmoid(dilated_output)
+        gate_output = tanh_gated_x * sigmoid_gated_x
+
+        #1x1 convolution
+        regular_conv_x = self.regular_conv(gate_output)
+
+        #skip connection
+        #shape = (batch_size, num_possible_values, 1)
+        skip_connection_output = regular_conv_x[:,:,-1:]
+
+        #residual
+        #shape = (batch_size, num_possible_values, length)
+        residual_output = regular_conv_x + x 
+
+        return residual_output, skip_connection_output
+
+'''
+A stack of residual blocks used by WaveNet.
+This can also be initialized directly while initializing models
+(e.g. adding a list of residual blocks)
+However, in order to increase readability and make sure each residual block
+is gpu-ready, this class is created
+It will automatically calculate dilation according to given stack size and layers per stack
+Dimension for residual blocks should always be the same as num_possible_values
+e.g.
+    stack = 5
+    layers = 8
+    -> dilation_each_stack=[1,2,4,8,16,32,64,128]
+       overall_dilation=[1,2,4,8,16,32,64,128,1,2,4,8,16,32,64,128,\
+                         1,2,4,8,16,32,64,128,1,2,4,8,16,32,64,128,\
+                         1,2,4,8,16,32,64,128]
+'''
+class ResidualStack(nn.Module):
+
+    def __init__(self, stack_size, layer_per_stack, residual_input_dim):
+        super(ResidualStack, self).__init__()
+
+        self.has_gpu = torch.cuda.is_available()
+
+        #check residual stack building section for the code
+        #self.residual_blocks should be a list of residual blocks
+        self.residual_blocks = self.get_block_list(stack_size,\
+                                                   layer_per_stack,\
+                                                   residual_input_dim)
+
+    def forward(self, x):
+        input_for_next_block = x #the input for next residual block is the output
+                                 #of previous block
+        skip_connections = [] #actual output we are going to use
+
+        for block in self.residual_blocks:
+            input_for_next_block, skip_connection = block(input_for_next_block)
+            skip_connections.append(skip_connection)
+
+        output = torch.stack(skip_connections)
+        return torch.sum(output, dim=0) #add all skip connections together
+                                        #output shape should be (batch_size, num_possible_values, 1)
+
+    #------ residual stack building section ------#
+    def get_one_block(self, residual_input_dim, dilation):
+        
+        block = ResidualBlock(residual_input_dim, dilation)
+
+        #if GPU is available, the use of GPU is guaranteed
+        return block if not self.has_gpu\
+                     else block.cuda()
+
+
+    def get_block_list(self, stack_size, layer_per_stack, residual_input_dim):
+        
+        block_list = []
+
+        dilation_each_stack = [2**i for i in range(layer_per_stack)]
+
+        for i in range(stack_size):
+            for dilation in dilation_each_stack:
+                block = self.get_one_block(residual_input_dim, dilation)
+                block_list.append(block)
+
+        return block_list
+    #------ residual stack building section finished
+
 #------ resnet section finished ------#
 
 #------ dense section ------#
