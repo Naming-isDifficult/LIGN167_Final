@@ -117,6 +117,18 @@ However, if that is the case, since there is not other layers changing the dimen
 both residual dimension and skip connection dimention has to be the same as output dimension
 Although I implement residual block like that (e.g. residual_input_dim = num_possible_values, 256 by default),
 I might still be wrong ---- they both can be part of hyperparameters.
+ATTENTION:
+Currently skip connection part might be wrong
+How to slice skip connectin IS NOT specified in the paper for WaveNet
+According to https://github.com/ibab/tensorflow-wavenet/blob/master/,
+a tensorflow implementation of WaveNet which has been cited for many times,
+the way to slice skip connection is
+    skip_cut = tf.shape(out)[1] - output_width
+    out_skip = tf.slice(out, [0, skip_cut, 0], [-1, -1, -1])
+which basically means only the last ouput_width (in my code output_width is always 1)
+elements will be selected.
+However, I don't really think it makes sense. For more information, plz check README
+Here I use a mean approach. Each block will caculate the mean of all samples.
 '''
 class ResidualBlock(nn.Module):
 
@@ -152,7 +164,7 @@ class ResidualBlock(nn.Module):
 
         #skip connection
         #shape = (batch_size, num_possible_values, 1)
-        skip_connection_output = regular_conv_x[:,:,-1:]
+        skip_connection_output = torch.mean(regular_conv_x, 2, True)
 
         #residual
         #shape = (batch_size, num_possible_values, length)
@@ -243,7 +255,7 @@ class DenseNet(nn.Module):
         #input and output should have the same dim
         super(DenseNet, self).__init__()
         
-        self.relu0 = nn.ReLU() #this will be apply directly to input
+        self.relu0 = nn.ReLU() #this will be applied directly to input
 
         self.conv1 = nn.Conv1d(input_dim, input_dim, 1)
         self.relu1 = nn.ReLU()
