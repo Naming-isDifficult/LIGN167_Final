@@ -29,7 +29,7 @@ e.g. input = [[[1 2 3 4 5 6 7 8]],
 '''
 class DilatedConv1D(nn.Module):
     
-    def __init__(self, input_dim=1, dilation=1, keep_dim=True):
+    def __init__(self, input_dim, dilation, keep_dim=True):
         super(DilatedConv1D, self).__init__()
         
         self.dilation = dilation
@@ -165,6 +165,7 @@ class ResidualBlock(nn.Module):
         #skip connection
         #shape = (batch_size, num_possible_values, 1)
         skip_connection_output = torch.mean(regular_conv_x, 2, True)
+        #skip_connection_output = regular_conv_x[:,:,-1:]
 
         #residual
         #shape = (batch_size, num_possible_values, length)
@@ -255,19 +256,21 @@ class DenseNet(nn.Module):
         #input and output should have the same dim
         super(DenseNet, self).__init__()
         
-        self.relu0 = nn.ReLU() #this will be applied directly to input
+        self.elu0 = nn.ELU() #this will be applied directly to input
+                             #deepmind use relu in their paper but I change it to elu
+                             #for faster training
 
         self.conv1 = nn.Conv1d(input_dim, input_dim, 1)
-        self.relu1 = nn.ReLU()
+        self.elu1 = nn.ELU()
 
         self.conv2 = nn.Conv1d(input_dim, input_dim, 1)
         self.softmax = nn.Softmax(dim=1) #input.shape=(batch_size, num_possible_values, 1)
 
     def forward(self, x):
-        output = self.relu0(x)
+        output = self.elu0(x)
 
         output = self.conv1(output)
-        output = self.relu1(output)
+        output = self.elu1(output)
 
         output = self.conv2(output)
         output = self.softmax(output)

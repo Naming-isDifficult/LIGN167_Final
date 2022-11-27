@@ -8,13 +8,14 @@ Although in theory, since wavenet can build long-term dependency, it can also be
  - WaveNet: A Generative Model for Raw Audio: https://arxiv.org/abs/1609.03499<br>
  - A TensorFlow implementation of DeepMind's WaveNet paper: https://github.com/ibab/tensorflow-wavenet
 
-Code for mu-law encoding and decoding are based on ibab's tensorflow implementation. I use numpy to re-implement them.
+Code for mu-law encoding and decoding are based on ibab's tensorflow implementation. I use numpy to re-implement them.<br>
+I also use ibab's tensorflow implementation for help when I reach skip connection and receptive field. However, I can't fully agree with ibab's implementation, though I could be, and most likely am, wrong. For more information, check **Issues** section.
 
 <br>
 
 # Requirements
 * python >= 3.8
-   - python 3.7 should also work but not guaranteed, the code is tested on python 3.8.3
+   - python 3.7 should also work but not guaranteed, the code is tested on python 3.8
 * pytorch
    - If you have an nVidia GPU, please install pytorch-cuda, cuda and cudnn to enable operations on GPUs. They are much faster than operations on CPUs.
 * librosa
@@ -56,7 +57,7 @@ Input -> Causal Convolution 1D (dimension will be raised to the same dimension a
 
 # Causality
 WaveNet is an autoregressive model based on CNN. In my code, causality  is preserved by only adding paddings at the beginning of the input. In this way, not only we can make input and output have the same length, but also make sure for each time step Xt, it won't contain information from future time step.
-## Example
+### Example
 &ensp; input = [[[1 2 3 4 5 6 7 8]],<br>
 &ensp; &ensp; &ensp; &ensp; &ensp; &ensp; [[8 7 6 5 4 3 2 1]]] <br>
 &ensp; Suppose all weights are 1 <br>
@@ -69,10 +70,15 @@ WaveNet is an autoregressive model based on CNN. In my code, causality  is prese
 <br>
 
 # Issues
-1. **Skip connections might be wrong.**<br>
+1. **Skip connections**<br>
    The paper for WaveNet ***does not*** specify how to slice skip connections. According to ibab's Tensorflow implementation, only the last element (or last few elements) will be sliced into skip connections. <br>
    However, I don't really think that make sense. It's true for the last residual block (or last few residual blocks), last elements (or last few elements) do contain the information of the whole receptive field but that is not always the case ---- for the first residual block, for example, it only contains the information from last two elements. <br>
    I use a mean approach to generate skip connections, but this might be wrong. 
+2. **Receptive Field**<br>
+   Although the paper does mention how to calculate the receptive field of one residual block and how to stack residual blocks together, the way to calculate receptive field of stack of residual blocks is not mentioned. In the tensorflow implementation by ibab, the receptive field is the sum of all dilations plus one. However, I'm currently suspecting it might be one of the following:
+    - (2 ** layer_per_stack - 1) * stack_size + 1 (ibab's implementation)
+    - (2 ** layer_per_stack) ** stack_size (unsure)
+    - (2 ** layer_per_stack) * stack_size (my implementation)<br>
 
 <br>
 
