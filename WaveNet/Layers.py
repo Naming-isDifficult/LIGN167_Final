@@ -135,14 +135,21 @@ class ResidualBlock(nn.Module):
     def __init__(self, residual_input_dim, dilation):
         super(ResidualBlock, self).__init__()
 
-        #convolution layers, including one dilated causal convolution layer,
-        #one regular convolution layer for residual output and skip connection output
-        self.dilated_conv = DilatedConv1D(residual_input_dim,\
+        #gate conv layers
+        self.dilated_tanh_gate_conv = DilatedConv1D(residual_input_dim,\
                                           dilation=dilation,\
                                           keep_dim=True)
-        self.regular_conv = nn.Conv1d(in_channels=residual_input_dim,\
+        self.dilated_sigmoid_gate_conv = DilatedConv1D(residual_input_dim,\
+                                          dilation=dilation,\
+                                          keep_dim=True)
+
+        #output conv layers
+        self.residual_conv = nn.Conv1d(in_channels=residual_input_dim,\
                                       out_channels=residual_input_dim,\
                                       kernel_size=1) #parameter names added for readability
+        self.skip_conv = nn.Conv1d(in_channels=residual_input_dim,\
+                                   out_channels=256,\
+                                   kernel_size=1)#parameter names added for readability
 
         #PixelCNN gate unit, as mentioned in the paper
         self.gate_tanh = nn.Tanh()
@@ -152,24 +159,25 @@ class ResidualBlock(nn.Module):
     def forward(self, x):
 
         #dilated causal conv
-        dilated_output = self.dilated_conv(x)
+        tanh_gated_x = self.dilated_tanh_gate_conv(x)
+        sigmoid_gated_x = self.dilated_sigmoid_gate_conv(x)
 
         #gate units
-        tanh_gated_x = self.gate_tanh(dilated_output)
-        sigmoid_gated_x = self.gate_sigmoid(dilated_output)
+        tanh_gated_x = self.gate_tanh(tanh_gated_x)
+        sigmoid_gated_x = self.gate_sigmoid(sigmoid_gated_x)
         gate_output = tanh_gated_x * sigmoid_gated_x
 
         #1x1 convolution
-        regular_conv_x = self.regular_conv(gate_output)
+        residual_conv_x = self.residual_conv(gate_output)
+        skip_conv_x = self.skip_conv(gate_output)
 
         #skip connection
         #shape = (batch_size, num_possible_values, 1)
-        skip_connection_output = torch.mean(regular_conv_x, 2, True)
-        #skip_connection_output = regular_conv_x[:,:,-1:]
+        skip_connection_output = torch.mean(skip_conv_x, 2, True)
 
         #residual
         #shape = (batch_size, num_possible_values, length)
-        residual_output = regular_conv_x + x 
+        residual_output = residual_conv_x + x
 
         return residual_output, skip_connection_output
 
@@ -264,7 +272,7 @@ class DenseNet(nn.Module):
         self.elu1 = nn.ELU()
 
         self.conv2 = nn.Conv1d(input_dim, input_dim, 1)
-        self.softmax = nn.Softmax(dim=1) #input.shape=(batch_size, num_possible_values, 1)
+        #self.softmax = nn.Softmax(dim=1) #input.shape=(batch_size, num_possible_values, 1)
 
     def forward(self, x):
         output = self.elu0(x)
@@ -273,7 +281,7 @@ class DenseNet(nn.Module):
         output = self.elu1(output)
 
         output = self.conv2(output)
-        output = self.softmax(output)
+        #output = self.softmax(output) <-fvck you pytorch, who the hell will put an activation function in loss function
 
         return output
 

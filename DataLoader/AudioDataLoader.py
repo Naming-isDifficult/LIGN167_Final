@@ -188,7 +188,7 @@ class AudioDataLoader(data.DataLoader):
     def generate_training_pairs(self, stacked_input):
         #stacked_input.shape = (1, num_samples, num_possible_values)
 
-        data = stacked_input[0] #data = (num_samples+receptive_field, num_possible_values), no paddings
+        data = stacked_input[0] #data = (num_samples, num_possible_values), no paddings
                                 #Also, num_possible_values are output dim, the inputdim should always be 1
 
         while len(data) > self.receptive_field:

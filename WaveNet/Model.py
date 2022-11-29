@@ -41,7 +41,6 @@ class WaveNetModel(nn.Module):
         
         output = self.causal_conv(x)
         output = self.residual_blocks(output)
-        #print(output)
         output = self.dense(output)
         
         return output
