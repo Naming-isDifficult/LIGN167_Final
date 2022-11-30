@@ -91,6 +91,7 @@ WaveNet is an autoregressive model based on CNN. In my code, causality  is prese
    - *Replaced by using yield instead of returning a batch created by the whole sound file.* 
  - ~~Network Layers~~ *(Now Functioning)*
  - ~~Model~~ *(Now Functioning)*
+ - Use a file to store hyperparameters instead of hard coding it while training
  - Data
  - Training
  - Generating samples

@@ -143,13 +143,14 @@ It will generate training data and label pairs according to given params
 '''
 class AudioDataLoader(data.DataLoader):
     def __init__(self, receptive_field:int,\
+                        dataset = None,\
                         source_folder:str='AudioData',\
                         batch_size:int=64,\
                         sr:int=16000,\
                         num_possible_value:int=256,\
                         trim=True):
-
-        dataset = AudioDataset(source_folder, sr,num_possible_value, trim)
+        if dataset is None:
+            dataset = AudioDataset(source_folder, sr,num_possible_value, trim)
         super(AudioDataLoader, self).__init__(dataset, 1, True) #True for shuffling
 
         self.receptive_field = receptive_field
