@@ -29,7 +29,7 @@ e.g. input = [[[1 2 3 4 5 6 7 8]],
 '''
 class DilatedConv1D(nn.Module):
     
-    def __init__(self, input_dim, dilation, keep_dim=True):
+    def __init__(self, dim, dilation, keep_dim=True):
         super(DilatedConv1D, self).__init__()
         
         self.dilation = dilation
@@ -41,15 +41,9 @@ class DilatedConv1D(nn.Module):
                                      #(mainly because I'm not familiar with pytorch)
                                      #we use nn.functional.pad instead
                                      #parameters should be (input, (self.dilation, 0),value=0)
-        self.conv = nn.Conv1d(in_channels=input_dim, out_channels=input_dim,\
+        self.conv = nn.Conv1d(in_channels=dim, out_channels=dim,\
                               kernel_size=2,stride=1,padding=0,\
                               dilation=dilation) #input and output should have the same dimension
-    
-    def testing_weight(self):
-        for layer in self.modules():
-            if isinstance(layer, nn.Conv1d):
-                layer.weight.data.fill_(1)
-                layer.bias.data.fill_(0)
 
     def forward(self, x):
         
@@ -91,12 +85,6 @@ class CausalConv1D(nn.Module):
                                      #parameters should be (input, (1, 0),value=0)
         self.conv = nn.Conv1d(in_channels=input_dim, out_channels=output_dim,\
                               kernel_size=2, stride=1, padding=0)
-        
-    def testing_weight(self):
-        for layer in self.modules():
-            if isinstance(layer, nn.Conv1d):
-                layer.weight.data.fill_(1)
-                layer.bias.data.fill_(0)
 
     def forward(self, x):
 
@@ -111,12 +99,7 @@ class CausalConv1D(nn.Module):
 '''
 Residual block used by WaveNet model, for more information, plz check:
 https://arxiv.org/pdf/1609.03499.pdf
-I'm not 100% sure about this
-I believe both residual output and skip connection output have the same dimension
-However, if that is the case, since there is not other layers changing the dimension,
-both residual dimension and skip connection dimention has to be the same as output dimension
-Although I implement residual block like that (e.g. residual_input_dim = num_possible_values, 256 by default),
-I might still be wrong ---- they both can be part of hyperparameters.
+skip_dim should be the same as num_possible_values (or the output_dim of )
 ATTENTION:
 Currently skip connection part might be wrong
 How to slice skip connectin IS NOT specified in the paper for WaveNet
@@ -132,28 +115,28 @@ Here I use a mean approach. Each block will caculate the mean of all samples.
 '''
 class ResidualBlock(nn.Module):
 
-    def __init__(self, residual_input_dim, dilation):
+    def __init__(self, residual_dim, skip_dim, dilation):
         super(ResidualBlock, self).__init__()
 
         #gate conv layers
-        self.dilated_tanh_gate_conv = DilatedConv1D(residual_input_dim,\
+        self.dilated_tanh_gate_conv = DilatedConv1D(residual_dim,\
                                           dilation=dilation,\
                                           keep_dim=True)
-        self.dilated_sigmoid_gate_conv = DilatedConv1D(residual_input_dim,\
+        self.dilated_sigmoid_gate_conv = DilatedConv1D(residual_dim,\
                                           dilation=dilation,\
                                           keep_dim=True)
-
-        #output conv layers
-        self.residual_conv = nn.Conv1d(in_channels=residual_input_dim,\
-                                      out_channels=residual_input_dim,\
-                                      kernel_size=1) #parameter names added for readability
-        self.skip_conv = nn.Conv1d(in_channels=residual_input_dim,\
-                                   out_channels=256,\
-                                   kernel_size=1)#parameter names added for readability
 
         #PixelCNN gate unit, as mentioned in the paper
         self.gate_tanh = nn.Tanh()
         self.gate_sigmoid = nn.Sigmoid()
+
+        #output conv layers
+        self.residual_conv = nn.Conv1d(in_channels=residual_dim,\
+                                      out_channels=residual_dim,\
+                                      kernel_size=1) #parameter names added for readability
+        self.skip_conv = nn.Conv1d(in_channels=residual_dim,\
+                                   out_channels=skip_dim,\
+                                   kernel_size=1)#parameter names added for readability
 
 
     def forward(self, x):
@@ -176,7 +159,7 @@ class ResidualBlock(nn.Module):
         skip_connection_output = torch.mean(skip_conv_x, 2, True)
 
         #residual
-        #shape = (batch_size, num_possible_values, length)
+        #shape = (batch_size, residual_dim, length)
         residual_output = residual_conv_x + x
 
         return residual_output, skip_connection_output
@@ -199,7 +182,7 @@ e.g.
 '''
 class ResidualStack(nn.Module):
 
-    def __init__(self, stack_size, layer_per_stack, residual_input_dim):
+    def __init__(self, stack_size, layer_per_stack, residual_dim, skip_dim):
         super(ResidualStack, self).__init__()
 
         self.has_gpu = torch.cuda.is_available()
@@ -208,7 +191,8 @@ class ResidualStack(nn.Module):
         #self.residual_blocks should be a list of residual blocks
         self.residual_blocks = self.get_block_list(stack_size,\
                                                    layer_per_stack,\
-                                                   residual_input_dim)
+                                                   residual_dim,\
+                                                   skip_dim)
 
     def forward(self, x):
         input_for_next_block = x #the input for next residual block is the output
@@ -224,16 +208,16 @@ class ResidualStack(nn.Module):
                                         #output shape should be (batch_size, num_possible_values, 1)
 
     #------ residual stack building section ------#
-    def get_one_block(self, residual_input_dim, dilation):
+    def get_one_block(self, residual_dim, skip_dim, dilation):
         
-        block = ResidualBlock(residual_input_dim, dilation)
+        block = ResidualBlock(residual_dim, skip_dim, dilation)
 
         #if GPU is available, the use of GPU is guaranteed
         return block if not self.has_gpu\
                      else block.cuda()
 
 
-    def get_block_list(self, stack_size, layer_per_stack, residual_input_dim):
+    def get_block_list(self, stack_size, layer_per_stack, residual_dim, skip_dim):
         
         block_list = []
 
@@ -241,7 +225,7 @@ class ResidualStack(nn.Module):
 
         for i in range(stack_size):
             for dilation in dilation_each_stack:
-                block = self.get_one_block(residual_input_dim, dilation)
+                block = self.get_one_block(residual_dim, skip_dim, dilation)
                 block_list.append(block)
 
         return block_list
@@ -254,25 +238,28 @@ class ResidualStack(nn.Module):
 Last layer of WaveNet, responsible for classification
 It will take the output from residual stack (which is the sum of skip connections) as input
 and will output the classification result based on softmax
+However, due to the goddamn pytorch, softmax won't be applied now, it will be applied later
+in WaveNet class.
+The original paper uses ReLU as activation function, but I use ELU here to speed up training
+process.
 The output should have shape (batch_size, num_possible_values, 1)
 For more information, plz check:
 https://arxiv.org/pdf/1609.03499.pdf
 '''
 class DenseNet(nn.Module):
 
-    def __init__(self, input_dim):
+    def __init__(self, dim):
         #input and output should have the same dim
+        #and it should be the same as num_possible_values
         super(DenseNet, self).__init__()
         
         self.elu0 = nn.ELU() #this will be applied directly to input
-                             #deepmind use relu in their paper but I change it to elu
-                             #for faster training
 
-        self.conv1 = nn.Conv1d(input_dim, input_dim, 1)
+        self.conv1 = nn.Conv1d(dim, dim, 1)
         self.elu1 = nn.ELU()
 
-        self.conv2 = nn.Conv1d(input_dim, input_dim, 1)
-        #self.softmax = nn.Softmax(dim=1) #input.shape=(batch_size, num_possible_values, 1)
+        self.conv2 = nn.Conv1d(dim, dim, 1)
+        #self.softmax = nn.Softmax(dim=1) <-fvck you pytorch, who the hell will put an activation function in loss function
 
     def forward(self, x):
         output = self.elu0(x)

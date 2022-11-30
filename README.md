@@ -79,6 +79,8 @@ WaveNet is an autoregressive model based on CNN. In my code, causality  is prese
     - (2 ** layer_per_stack - 1) * stack_size + 1 (ibab's implementation)
     - (2 ** layer_per_stack) ** stack_size (unsure)
     - (2 ** layer_per_stack) * stack_size (my implementation)<br>
+3. **Saving/Loading Models**<br>
+    Although pytorch does provide torch.save() and torch.load() methods to save/load models, I don't really want to use they due to uncertainty ---- I don't have enough time to make sure everything is working. Instead, I use another approach ---- saving the model with python moudule pickle. To save/load your own model, save_model_pickle() and load_model_pickle() methods are recommended. They are implemented based on picke module. For save_model() and load_model() methods, they are implemented based on putorch and their functionalities *are not* guaranteed.
 
 <br>
 
@@ -88,7 +90,7 @@ WaveNet is an autoregressive model based on CNN. In my code, causality  is prese
  - ~~Audio data splitter~~
    - *Replaced by using yield instead of returning a batch created by the whole sound file.* 
  - ~~Network Layers~~ *(Now Functioning)*
- - Model
+ - ~~Model~~ *(Now Functioning)*
  - Data
  - Training
  - Generating samples

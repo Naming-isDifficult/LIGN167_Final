@@ -133,3 +133,6 @@ dmypy.json
 
 #test notebook files
 /Test_Notebooks
+
+#saved models
+/Model
