@@ -39,6 +39,7 @@ class Trainer:
 
         self.wavenet_model = WaveNet(stack_size, layer_per_stack,\
                                      input_dim, res_dim, output_dim, lr)
+        self.wavenet_model.reset_default_model_dir()
 
         receptive_field = self.wavenet_model.get_receptive_field()
 
@@ -58,6 +59,7 @@ class Trainer:
                 If you want to overwrite it, please use suppress_error=True.')
         
         self.wavenet_model = WaveNet.load_model_pickle(path_to_model)
+        self.wavenet_model.reset_default_model_dir()
         
         receptive_field = self.wavenet_model.get_receptive_field()
 

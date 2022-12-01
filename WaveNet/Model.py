@@ -82,6 +82,9 @@ class WaveNet:
         current_time = current_time.strftime('%Y-%m-%d')
         return 'Model/WaveNet_Model_{date}'.format(date=current_time)
 
+    def reset_default_model_dir(self):
+        self.default_dir_cache = None
+
     def get_model_name(self, step, loss):
         return 'wavenet_step{current_step}_loss{current_loss}.model'.format(current_step=step,\
                                                                             current_loss=loss)
