@@ -103,7 +103,7 @@ class Trainer:
                     #check how many models have been saved
                     file_list = os.listdir(model_dir)
                     if(len(file_list) > maximum_model):
-                        file_list.sort(key=lambda x: int(x[12:-17]))
+                        file_list.sort(key=lambda x: int(x.split('_')[1][4:]))
                         os.remove(os.path.join(model_dir, file_list[0]))
 
         #save the model after all epoches are done

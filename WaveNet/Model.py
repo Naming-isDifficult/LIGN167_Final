@@ -119,8 +119,13 @@ class WaveNet:
         model_name = self.get_model_name(step, loss)
         path_to_model = os.path.join(model_dir, model_name)
 
-        torch.save(self.model.state_dict(), path_to_model)
-        print('Model saved to {dir}'.format(dir=path_to_model))
+        try:
+            torch.save(self.model.state_dict(), path_to_model)
+            print('Model saved to {dir}'.format(dir=path_to_model))
+        except:
+            os.makedirs(model_dir)
+            torch.save(self.model.state_dict(), path_to_model)
+            print('Model saved to {dir}'.format(dir=path_to_model))
 
 
     def save_model_pickle(self, step, loss, model_dir=None, default_dir=True):
@@ -134,8 +139,13 @@ class WaveNet:
         model_name = self.get_model_name(step, loss)
         path_to_model = os.path.join(model_dir, model_name)
 
-        pickle.dump(self, open(path_to_model, 'wb'))
-        print('Model saved to {dir}'.format(dir=path_to_model))
+        try:
+            pickle.dump(self, open(path_to_model, 'wb'))
+            print('Model saved to {dir}'.format(dir=path_to_model))
+        except:
+            os.makedirs(model_dir)
+            pickle.dump(self, open(path_to_model, 'wb'))
+            print('Model saved to {dir}'.format(dir=path_to_model))
     #------ methods for training finish ------#
 
 

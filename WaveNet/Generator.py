@@ -6,6 +6,7 @@ import torch
 import numpy as np
 import copy
 from tqdm import tqdm
+import soundfile
 
 class Generator:
     '''
@@ -48,10 +49,12 @@ class Generator:
     '''
     Generate a sample using given model
     target_length is the length of output audio, in seconds
+    path_to_output is the place for you to store your output wav file
     seed is the seed for audio. It has a default None value, in other words, if seed
     is not specified, a random number will be used.
+    seed should be a numpy.ndarray object
     '''
-    def generate_samples(self, target_length, seed=None):
+    def generate_samples(self, target_length, path_to_output, seed=None):
         if seed is None:
             seed = np.random.random.((1,))*255
             seed = np.cast['int32'](seed)
@@ -72,4 +75,6 @@ class Generator:
             next_sample = mu_law_decode(next)
 
             result = np.append(result, next_sample)
+        
+        soundfile.write(path_to_output, result, self.sr)
         
