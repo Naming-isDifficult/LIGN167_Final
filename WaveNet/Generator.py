@@ -14,8 +14,7 @@ class Generator:
     '''
     def __init__(self, path_to_model, num_possible_values=256, sr=16000):
 
-        self.wavenet_model = WaveNet.load_model_pickle(1, path_to_model)
-        # set batch_size to one, though it won't be used in this module
+        self.wavenet_model = WaveNet.load_model_pickle(path_to_model)
 
         self.sr = sr
         self.num_possible_values = num_possible_values
@@ -41,7 +40,9 @@ class Generator:
         else:
             re = copy.deepcopy(seed)
 
+        re = re.reshape((1,1,-1)) #(batch_size, input_dim, length)
         re = torch.tensor(re)
+        re = re.type(torch.FloatTensor)
 
         return re if not torch.cuda.is_available()\
                   else re.cuda()
@@ -56,7 +57,7 @@ class Generator:
     '''
     def generate_samples(self, target_length, path_to_output, seed=None):
         if seed is None:
-            seed = np.random.random.((1,))*255
+            seed = np.random.random((1,))*255
             seed = np.cast['int32'](seed)
             seed = mu_law_decode(seed, self.num_possible_values)
 
@@ -71,8 +72,8 @@ class Generator:
 
             seed = self.slice_sample_to_pred(result)
 
-            next_sample = self.wavenet_model.(seed).item()
-            next_sample = mu_law_decode(next)
+            next_sample = self.wavenet_model.pred(seed).item()
+            next_sample = mu_law_decode(next_sample)
 
             result = np.append(result, next_sample)
         
