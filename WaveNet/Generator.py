@@ -38,8 +38,9 @@ class Generator:
         if len(seed) > self.receptive_field:
             re = seed[-self.receptive_field:]
         else:
-            re = copy.deepcopy(seed)
+            re = seed
 
+        
         re = re.reshape((1,1,-1)) #(batch_size, input_dim, length)
         re = torch.tensor(re)
         re = re.type(torch.FloatTensor)

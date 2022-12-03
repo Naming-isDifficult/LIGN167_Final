@@ -1,6 +1,6 @@
 # LIGN167_Final
 Final project for LIGN167 ---- a pytorch implementation for WaveNet.
-Although in theory, since wavenet can build long-term dependency, it can also be used to handle text generation tasks. However, due to limited time, I'm afraid I might not be able to finish both parts. Text generation will be in the **TO-DO** list and all python files needed for text generation will be created. This markdown file will focus on audio part.
+Although in theory, since wavenet can build long-term dependency, it can also be used to handle text generation tasks, due to limited time, I'm afraid I might not be able to finish both parts. Text generation will be in the **TO-DO** list and all python files needed for text generation will be created. This markdown file will focus on audio part.
 
 <br>
 
@@ -19,6 +19,7 @@ I also use ibab's tensorflow implementation for help when I reach skip connectio
 * pytorch
    - If you have an nVidia GPU, please install pytorch-cuda, cuda and cudnn to enable operations on GPUs. They are much faster than operations on CPUs.
 * librosa
+* soundfile
 * numpy
 
 
@@ -84,15 +85,32 @@ WaveNet is an autoregressive model based on CNN. In my code, causality  is prese
 
 <br>
 
+# Limitations
+## High cost of training/generating
+A single second of sound wave contains over 10k samples (this depends on sample rate and most of the time the lowest sample rate is 16kHz) and the model can only train on/generate one sample at a time. We can do a simple calculaistion:<br>
+1s -> 16000 samples -> 16000 training samples<br>
+2min30s music -> 150s -> 2.4M training samples<br>
+Which is literally awful.<br>
+Hence, when generating samples, on my 3080laptop, in average it can generate 20~30 samples per second which means it needs rounly 10~14 minutes to generate a single second of sound.
+
+<br>
+
+# Futher development
+## Parallel WaveNet
+This is also proposed by Google Deepmind. Unlike original wavenet, a "student network" is involved. The "student network" aims to generate the sound directly and parallely from Gausian noise instead of sample by sample. A well-trained WaveNet model will be used as "teacher network" to train the "student network." This will speed up the generating process but requires even more time training the model.<br>
+For more information, please check https://arxiv.org/abs/1711.10433
+
+<br>
+
 # To-DO
- - ~~Audio data loader~~ *(Now Functioning)*
+ - ~~Audio data loader~~
    - Using original data directly instead of mu-law encoded or one-hot encoded as input *(Still Pending)*
  - ~~Audio data splitter~~
    - *Replaced by using yield instead of returning a batch created by the whole sound file.* 
- - ~~Network Layers~~ *(Now Functioning)*
- - ~~Model~~ *(Now Functioning)*
+ - ~~Network Layers~~
+ - ~~Model~~
  - Use a file to store hyperparameters instead of hard coding it while training
- - Data
+ - ~~Data~~
  - Training
  - Generating samples
  - Text generation
