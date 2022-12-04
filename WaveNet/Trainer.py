@@ -51,14 +51,14 @@ class Trainer:
     Initialize the model by reading a pre-existing model
     If the model has been initialized before, an error will be thrown
     '''
-    def load_model(self, batch_size, path_to_model, suppress_error=False):
+    def load_model(self, batch_size, path_to_model, path_to_weight, suppress_error=False):
 
         if not suppress_error:
             if self.wavenet_model is not None:
                 raise RuntimeError('You have already initialized this the model in this trainer.\
                 If you want to overwrite it, please use suppress_error=True.')
         
-        self.wavenet_model = WaveNet.load_model_pickle(path_to_model)
+        self.wavenet_model = WaveNet.load_model(path_to_model, path_to_weight)
         self.wavenet_model.reset_default_model_dir()
         
         receptive_field = self.wavenet_model.get_receptive_field()
@@ -100,17 +100,18 @@ class Trainer:
                 print('Step: {st}, Loss: {lo}'.format(st=step, lo=loss))
 
                 if(step%steps_to_save == 0):
-                    self.wavenet_model.save_model_pickle(step, loss,\
-                                                         model_dir, default_dir)
+                    self.wavenet_model.save_model(step, loss,\
+                                                  model_dir, default_dir)
                     #check how many models have been saved
                     file_list = os.listdir(model_dir)
-                    if(len(file_list) > maximum_model):
+                    if(len(file_list) > maximum_model*2):
                         file_list.sort(key=lambda x: int(x.split('_')[1][4:]))
-                        os.remove(os.path.join(model_dir, file_list[0]))
+                        os.remove(os.path.join(model_dir, file_list[0])) #remove model
+                        os.remove(os.path.join(model_dir, file_list[1])) #remove weight
 
         #save the model after all epoches are done
-        self.wavenet_model.save_model_pickle(step, loss.item(),\
-                                                         model_dir, default_dir)
+        self.wavenet_model.save_model(step, loss.item(),\
+                                      model_dir, default_dir)
         #check how many models have been saved
         file_list = os.listdir(model_dir)
         if(len(file_list) > maximum_model):

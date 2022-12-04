@@ -87,6 +87,8 @@ class WaveNet:
 
     def get_model_name(self, step, loss):
         return 'wavenet_step{current_step}_loss{current_loss}.model'.format(current_step=step,\
+                                                                            current_loss=loss),\
+               'wavenet_step{current_step}_loss{current_loss}.weight'.format(current_step=step,\
                                                                             current_loss=loss)
 
 
@@ -119,51 +121,53 @@ class WaveNet:
                 model_dir = self.default_dir_cache
             else:
                 self.default_dir_cache = self.get_default_model_dir()
-        model_name = self.get_model_name(step, loss)
+
+    
+        model_name, weight_name = self.get_model_name(step, loss)
         path_to_model = os.path.join(model_dir, model_name)
+        path_to_weight = os.path.join(model_dir, weight_name)
 
         try:
-            torch.save(self.model.state_dict(), path_to_model)
+            #use pickle to save model structure
+            pickle.dump(self, open(path_to_model, 'wb'))
+
+            #use torch to save model weights
+            torch.save(self.model.state_dict(), path_to_weight)
+
             print('Model saved to {dir}'.format(dir=path_to_model))
+            print('Weight saved to {dir}'.format(dir=path_to_weight))
+
         except:
             os.makedirs(model_dir)
-            torch.save(self.model.state_dict(), path_to_model)
-            print('Model saved to {dir}'.format(dir=path_to_model))
 
-
-    def save_model_pickle(self, step, loss, model_dir=None, default_dir=True):
-        #save model for future use
-        #this method will use a pickle approach
-        if default_dir:
-            if self.default_dir_cache is not None:
-                model_dir = self.default_dir_cache
-            else:
-                self.default_dir_cache = self.get_default_model_dir()
-        model_name = self.get_model_name(step, loss)
-        path_to_model = os.path.join(model_dir, model_name)
-
-        try:
+            #use pickle to save model structure
             pickle.dump(self, open(path_to_model, 'wb'))
+
+            #use torch to save model weights
+            torch.save(self.model.state_dict(), path_to_weight)
+
             print('Model saved to {dir}'.format(dir=path_to_model))
-        except:
-            os.makedirs(model_dir)
-            pickle.dump(self, open(path_to_model, 'wb'))
-            print('Model saved to {dir}'.format(dir=path_to_model))
+            print('Weight saved to {dir}'.format(dir=path_to_weight))
+
     #------ methods for training finish ------#
 
 
     #------ methods for predicting ------#
     @staticmethod
-    def load_model(path_to_model):
-        #load a model saved by pytorch
-        print('Model at {dir} loaded'.format(dir=path_to_model))
-        return torch.load(open(path_to_model))
+    def load_model(path_to_model, path_to_weight):
 
-    @staticmethod
-    def load_model_pickle(path_to_model):
-        #load a model saved by pickle
+        #load the model structure with pickle
+        loaded_model = pickle.load(open(path_to_model, 'rb'))
+
         print('Model at {dir} loaded'.format(dir=path_to_model))
-        return pickle.load(open(path_to_model, 'rb'))
+
+        #load the weight with pytroch
+        state_dict = torch.load(path_to_weight)
+        loaded_model.model.load_state_dict(state_dict)
+
+        print('Weight at {dir} loaded'.format(dir=path_to_weight))
+        
+        return loaded_model
 
     def pred(self, input):
         #predict next value
