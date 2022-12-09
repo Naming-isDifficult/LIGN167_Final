@@ -5,10 +5,11 @@ import librosa
 if __name__ == '__main__':
 
     #extract seed from existing file
-    seed, _ = librosa.load('seed.wav', sr=16000, duration=1.5)
+    seed, _ = librosa.load('seed.wav', sr=16000, duration=1.1)
 
     print(seed.shape)
 
-    generator = Generator('Model/WaveNet_Model_2022-12-01/wavenet_step5000_loss5.4459.model')
+    generator = Generator('Model\WaveNet_Model_2022-12-04\wavenet_step37820_loss5.3806.model',\
+                          'Model\WaveNet_Model_2022-12-04\wavenet_step37820_loss5.3806.weight')
 
     generator.generate_samples(5, 'output.wav', seed=seed)

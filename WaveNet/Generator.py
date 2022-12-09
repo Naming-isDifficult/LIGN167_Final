@@ -12,9 +12,9 @@ class Generator:
     '''
     Load an existing wavenet model to create a generator
     '''
-    def __init__(self, path_to_model, num_possible_values=256, sr=16000):
+    def __init__(self, path_to_model, path_to_weight, num_possible_values=256, sr=16000):
 
-        self.wavenet_model = WaveNet.load_model_pickle(path_to_model)
+        self.wavenet_model = WaveNet.load_model(path_to_model,path_to_weight)
 
         self.sr = sr
         self.num_possible_values = num_possible_values
