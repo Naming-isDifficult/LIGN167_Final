@@ -1,5 +1,5 @@
 # LIGN167_Final
-Final project for LIGN167 ---- a pytorch implementation for WaveNet.
+Final project for LIGN167 ---- a pytorch implementation of WaveNet.<br>
 Although in theory, since wavenet can build long-term dependency, it can also be used to handle text generation tasks, due to limited time, I'm afraid I might not be able to finish both parts. Text generation will be in the **TO-DO** list and all python files needed for text generation will be created. This markdown file will focus on audio part.
 
 <br>
@@ -99,16 +99,3 @@ This is also proposed by Google Deepmind. Unlike original wavenet, a "student ne
 For more information, please check https://arxiv.org/abs/1711.10433
 
 <br>
-
-# To-DO
- - ~~Audio data loader~~
-   - Using original data directly instead of mu-law encoded or one-hot encoded as input *(Still Pending)*
- - ~~Audio data splitter~~
-   - *Replaced by using yield instead of returning a batch created by the whole sound file.* 
- - ~~Network Layers~~
- - ~~Model~~
- - Use a file to store hyperparameters instead of hard coding it while training
- - ~~Data~~
- - Training
- - Generating samples
- - Text generation
